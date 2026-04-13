@@ -1,0 +1,20 @@
+{
+  "name": "paychexapi",
+  "version": "1.0.0",
+  "description": "API wrapper for paychex API",
+  "homepage": "https://github.com/r3turn0/paychexAPI#readme",
+  "bugs": {
+    "url": "https://github.com/r3turn0/paychexAPI/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/r3turn0/paychexAPI.git"
+  },
+  "license": "ISC",
+  "author": "John Ericta",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
