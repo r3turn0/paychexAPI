@@ -7,10 +7,10 @@ const fs = require('fs');
 // Map the list of employee names and match it to the list of workerIds. The list of employee names is stored in a csv file.
 
 const apiURL = new url.URL('https://api.paychex.com/auth/oauth/v2/token');
-async function getAccessToken(url, companyName) {
+async function getAccessToken(url) {
   try {
     return new Promise(async (resolve, reject) => { 
-      const response = await fetch(apiURL, {
+      const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -39,7 +39,7 @@ async function getCompanyId(accessToken) {
       const companyId = await fetch('https://api.paychex.com/companies', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${response.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Accept': 'application/vnd.paychex.companies.v1+json'
           }
         });
@@ -62,7 +62,7 @@ async function getWorkers(cid, accessToken) {
       const workers = await fetch(`https://api.paychex.com/companies/${cid}/workers`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${response.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Accept': 'application/json'     
         }
       });
@@ -78,11 +78,98 @@ async function getWorkers(cid, accessToken) {
     console.log('Error retrieving workers:', e);
   }
 }
-async function sendDirectDeposit(employee) {
+// async function sendCompanyJob(employee) {
+//   try {
+//     return new Promise(async (resolve, reject) => {
+//       const companyJobResponse = await fetch(`https://api.paychex.com/workers/${employee.workerId}/companyjobs`, {
+//         method: 'POST',
+//         headers: {
+//           'Content-Type': 'application/x-www-form-urlencoded',
+//         },
+//         body: JSON.stringify([{
+//           jobsCorrelationId: employee.jobsCorrelationId,
+//           jobName: employee.jobName,
+//           startDate: employee.startDate,
+//           endDate: employee.endDate
+//         }])
+//       });
+//       if(companyJobResponse) {
+//         resolve(companyJobResponse.json());
+//       }
+//       else {
+//         reject('Error retrieving access token', companyJobResponse);  
+//       }
+//     });
+//   }
+//   catch(e) {
+
+//   }
+// }
+async function sendWorkerPayRate(employee, accessToken) {
   try {
+    return new Promise(async (resolve, reject) => {
+      const workerPayRateResponse = await fetch(`https://api.paychex.com/workers/${employee.workerId}/compensation/payrates`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: JSON.stringify([{
+          "startDate": employee.startDate,
+          "rateType": employee.rateType,
+          "amount": employee.amount
+        }])
+      });
+      if(workerPayRateResponse) {
+        resolve(workerPayRateResponse.json());
+      }
+      else {
+        reject('Error retrieving access token', workerPayRateResponse);
+      }
+    });
+  }
+  catch(e) {
+    console.log('Error sending worker pay rate', e);
+  }
+}
+async function sendWorkerDocument(employee, accessToken, file) {
+  const base64 = Buffer.from(file.data).toString('base64');
+  try {
+    return new Promise(async (resolve, reject) => {
+      const workerDocumentResponse = await fetch(`https://api.paychex.com/workers/${employee.workerId}/workerdocuments`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`, 
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: JSON.stringify([{
+          workerId: employee.workerId,
+          file: base64,
+          metadata: {
+            "name": file.name,
+            "category": file.category
+          }
+        }])
+      });
+      if(workerDocumentResponse) {
+        resolve(workerDocumentResponse.json());
+      }
+      else {
+        reject('Error retrieving access token', workerDocumentResponse);
+      }
+    });
+  }
+  catch(e) {
+    console.log('Error sending worker document', e);
+  }
+}
+async function sendDirectDeposit(employee, accessToken) {
+  try {
+    return new Promise(async (resolve, reject) => { 
     const ddResponse = await fetch(`https://api.paychex.com/workers/${employee.workerId}/directdeposits`, {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: JSON.stringify([{ 
@@ -101,6 +188,7 @@ async function sendDirectDeposit(employee) {
       else {
         reject('Error retrieving access token', ddResponse);
       }
+    });
   }
   catch(error) {
     console.log('Error on posting direct deposit for employee:', employee.workerId, error);
