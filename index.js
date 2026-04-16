@@ -2,24 +2,57 @@ const http = require('http');
 const url = require('url');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config();
+/*
+  Paychex automation script
 
-// Sets up the url to access paychex API and retrieves the access token, company ID, and a list of workers and their information.
-// Map the list of employee names and match it to the list of workerIds. The list of employee names is stored in a csv file.
+  Purpose
+  - Read a CSV file of employee/direct-deposit rows (dd.csv) and post direct-deposit
+    updates to the Paychex API for matching workers.
+
+  Important notes / assumptions
+  - This file is the original automation script. It contains several areas that
+    need hardening before production (see README.md). This file preserves the
+    author's original control flow and should be refactored for robustness.
+  - The script expects a local file `dd.csv` in the same directory. Each row is
+    treated as one employee record. The parsing is naive (split on newlines) and
+    does not handle CSV quoting or commas in fields.
+  - Authentication (OAuth) call is made to the token URL below; client
+    credentials are expected to be inserted where indicated or provided by
+    environment/secret management in a refactor.
+
+  CSV format (expected fields, example header):
+    firstName,lastName,workerId,startDate,paymentType,accountType,value,routingNumber,accountNumber,priority
+
+  Integration: Power Automate / OneDrive
+  - Use a Power Automate flow with trigger "When a file is created" (OneDrive for Business),
+    then either:
+      * Send the file contents to a hosted endpoint that runs this script, or
+      * Drop the file into a location where this script runs and is scheduled to poll.
+
+  See README.md for detailed usage, risks, and recommended refactors.
+
+*/
 
 const apiURL = new url.URL('https://api.paychex.com/auth/oauth/v2/token');
 async function getAccessToken(url) {
   try {
+    // NOTE: original code wrapped async/await in an extra Promise. It returns
+    // the token response JSON. In practice, you should use URLSearchParams to
+    // encode x-www-form-urlencoded body and supply client credentials from
+    // environment variables or a secure store instead of inlining here.
     return new Promise(async (resolve, reject) => { 
       const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: JSON.stringify([{ 
-          grant_type: '',
-          client_id: '',
-          client_secret: ''  
-        }])
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: JSON.stringify([{ 
+            grant_type: process.env.GRANT_TYPE,
+            client_id: process.env.CLIENT_ID,
+            client_secret: process.env.CLIENT_SECRET,
+            scope: process.env.SCOPE
+          }])
       });
       if(response) {
         resolve(response.json());
@@ -66,8 +99,11 @@ async function getWorkers(cid, accessToken) {
           'Accept': 'application/json'     
         }
       });
+      // `workers` is the fetch Response object. The original script resolves
+      // with the response; callers must call .json() on it. Consider returning
+      // the parsed JSON directly to simplify callers.
       if(workers) {
-        resolve(workers);
+        resolve(workers.json());
       }
       else {
         reject('Error retrieving workers', workers);
@@ -195,24 +231,34 @@ async function sendDirectDeposit(employee, accessToken) {
   }
 }
 async function main() {
-  // Grab the files from the cloud directory in one drive under HR/Automation/Paychex/Direct Deposit
+  // Read the dd.csv file (naive parsing) and produce one record per line.
+  // Expected header row and CSV parsing must be implemented for production use.
   const file = fs.readFileSync(path.join(__dirname, 'dd.csv'), 'utf-8');
-  const employees = file.split('\n').map(name => name.trim());
-  // Employee file must have startDate, paymentType, accountType, value, routingNumber, accountNumber, and priority. Include the workerId to post to paychex.
-  // Add workerId to the employee list if the workers family name and given name match the employee first name and last name. If there is no match, add null to the list. 
-  const workerData = await workers.json();
+  const employees = file.split('\n').map(name => name.trim()).filter(Boolean);
+  // NOTE: `employees` is currently an array of strings. The original script
+  // assumes structured objects; to use this reliably you should parse CSV into
+  // objects keyed by header names.
+
+  // The following block intended to match workers to employees. In the
+  // original script `workers` is not defined in this scope; before calling
+  // this block the code must call `getAccessToken()` and `getWorkers()` and
+  // parse `employees` into objects. This preserves original behavior but is
+  // not yet fully wired.
+  const token = await getAccessToken(apiURL);
+  const cid = await getCompanyId(token.access_token);
+  const workerData = await getWorkers(cid, token.access_token);
   workerData.forEach(worker => {
-      const fullName = `${worker.givenName} ${worker.familyName}`;
-      employees.forEach(employee => {
-          if (fullName === employee.givenName + ' ' + employee.familyName) {
-            employee.workerId = worker.workerId;
-          }
-      });
+    const fullName = `${worker.givenName} ${worker.familyName}`;
+    employees.forEach(employee => {
+      if (fullName === employee.givenName + ' ' + employee.familyName) {
+        employee.workerId = worker.workerId;
+      }
+    });
   });
   employees.forEach(employee => {
-      if (employee.workerId) {
-          sendDirectDeposit(employee);
-      }
+    if (employee.workerId) {
+      sendDirectDeposit(employee);
+    }
   });
 }
 
