@@ -62,8 +62,8 @@ async function getAccessToken(url) {
       }
     });
   }
-  catch(e) {
-    console.log('Error connecting to Paychex API:', e);
+  catch(error) {
+    console.log('Error connecting to Paychex API:', error);
   }
 }
 async function getCompanyId(accessToken) {
@@ -85,8 +85,8 @@ async function getCompanyId(accessToken) {
       }
     });   
   }
-  catch(e) {
-    console.log('Error retrieving company ID:', e);
+  catch(error) {
+    console.log('Error retrieving company ID:', error);
   }
 }
 async function getWorkers(cid, accessToken) {
@@ -110,37 +110,37 @@ async function getWorkers(cid, accessToken) {
       }
     });
   }
-  catch(e) {
-    console.log('Error retrieving workers:', e);
+  catch(error) {
+    console.log('Error retrieving workers:', error);
   }
 }
-// async function sendCompanyJob(employee) {
-//   try {
-//     return new Promise(async (resolve, reject) => {
-//       const companyJobResponse = await fetch(`https://api.paychex.com/workers/${employee.workerId}/companyjobs`, {
-//         method: 'POST',
-//         headers: {
-//           'Content-Type': 'application/x-www-form-urlencoded',
-//         },
-//         body: JSON.stringify([{
-//           jobsCorrelationId: employee.jobsCorrelationId,
-//           jobName: employee.jobName,
-//           startDate: employee.startDate,
-//           endDate: employee.endDate
-//         }])
-//       });
-//       if(companyJobResponse) {
-//         resolve(companyJobResponse.json());
-//       }
-//       else {
-//         reject('Error retrieving access token', companyJobResponse);  
-//       }
-//     });
-//   }
-//   catch(e) {
-
-//   }
-// }
+async function sendCompanyJob(employee) {
+  try {
+    return new Promise(async (resolve, reject) => {
+      const companyJobResponse = await fetch(`https://api.paychex.com/workers/${employee.workerId}/companyjobs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: JSON.stringify([{
+          jobsCorrelationId: employee.jobsCorrelationId,
+          jobName: employee.jobName,
+          startDate: employee.startDate,
+          endDate: employee.endDate
+        }])
+      });
+      if(companyJobResponse) {
+        resolve(companyJobResponse.json());
+      }
+      else {
+        reject('Error posting company job', companyJobResponse);  
+      }
+    });
+  }
+  catch(errore) {
+    console.log('Error posting company job in sendCompanyJob', error);
+  }
+}
 async function sendWorkerPayRate(employee, accessToken) {
   try {
     return new Promise(async (resolve, reject) => {
@@ -164,8 +164,8 @@ async function sendWorkerPayRate(employee, accessToken) {
       }
     });
   }
-  catch(e) {
-    console.log('Error sending worker pay rate', e);
+  catch(error) {
+    console.log('Error sending worker pay rate', error);
   }
 }
 async function sendWorkerDocument(employee, accessToken, file) {
@@ -230,6 +230,197 @@ async function sendDirectDeposit(employee, accessToken) {
     console.log('Error on posting direct deposit for employee:', employee.workerId, error);
   }
 }
+async function sendFederalTax(employee, accessToken) {
+  try {
+    return new Promise(async (resolve, reject) => { 
+    const federalTaxResponse = await fetch(`https://api.paychex.com/workers/${employee.workerId}/federaltax`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: JSON.stringify([{ 
+          filingStatus: employee.filingStatus,
+          multipleJobs: employee.multipleJobs,
+          dependentAmount: employee.dependentAmount,
+          otherIncome: employee.otherIncome,
+          deductionsAmount: employee.deductionsAmount,
+          taxesWithheld: employee.taxesWithheld,
+          extraWitholdingAmount: employee.extraWitholdingAmount,
+          overrideWithholdingAmount: employee.overrideWithholdingAmount,
+          extraWithholdingPercentage: employee.extraWithholdingPercentage,
+          overrideWithholdingPercentage: employee.overrideWithholdingPercentage
+        }])
+      });
+      if(federalTaxResponse) {
+        resolve(federalTaxResponse.json());
+      }
+      else {
+        reject('Error retrieving access token', federalTaxResponse);
+      }
+    });
+  }
+  catch(error) {
+    console.log('Error on posting federal tax for employee:', employee.workerId, error);
+  }
+}
+async function sendStateTax(employee, accessToken) {
+  try {
+    return new Promise(async (resolve, reject) => { 
+    const stateTaxResponse = await fetch(`https://api.paychex.com/workers/${employee.workerId}/statetaxes`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: JSON.stringify([{ 
+          countrySubdivisionCode: employee.countrySubdivisionCode,
+          stateAllocationPercent: employee.stateAllocationPercent,
+          isResidentState: employee.isResidentState,
+          taxStatusType: employee.taxStatusType,
+          filingStatusType: employee.filingStatusType,
+          additionalAmount: employee.additionalAmount,
+          additionalPercent: employee.additionalPercent,
+          flatDollarOverride: employee.flatDollarOverride,
+          overridePercent: employee.overridePercent
+        }])
+      });
+      if(stateTaxResponse) {
+        resolve(stateTaxResponse.json());
+      }
+      else {
+        reject('Error posting state tax for employee:', employee.workerId, stateTaxResponse);
+      }
+    });
+  }
+  catch(error) {
+    console.log('Error on posting state tax for employee in sendStateTax:', employee.workerId, error);
+  }
+}
+async function getWorkerStatus(employee, accessToken) {
+  try {
+    return new Promise(async (resolve, reject) => { 
+    const workerStatusResponse = await fetch(`https://api.paychex.com/workers/${employee.workerId}/status`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.paychex.companies.v1+json'
+      },
+    });
+      if(workerStatusResponse) {
+        resolve(workerStatusResponse.json());
+      }
+      else {
+        reject('Error retrieving worker status for employee:', employee.workerId, workerStatusResponse);
+      }
+    });
+  }
+  catch(error) {
+    console.log('Error on retrieving worker status for employee in getWorkerStatus:', employee.workerId, error);
+  }
+}
+async function getManagementDomains() {
+  try {
+    return new Promise(async (resolve, reject) => { 
+    const managementDomainsResponse = await fetch(`https://api.paychex.com/management/domains`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.paychex.companies.v1+json'
+      },
+    });
+      if(managementDomainsResponse) {
+        resolve(managementDomainsResponse.json());
+      }
+      else {
+        reject('Error retrieving management domains:', managementDomainsResponse);
+      }
+    });
+  }
+  catch(error) {
+    console.log('Error on retrieving management domains in managementDomainsResponse:', error);
+  }
+}
+async function getWebhooks() {
+  try {
+    return new Promise(async (resolve, reject) => { 
+    const getWebhooksResponse = await fetch(`https://api.paychex.com/management/hooks`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.paychex.companies.v1+json'
+      },
+    });
+      if(getWebhooksResponse) {
+        resolve(getWebhooksResponse.json());
+      }
+      else {
+        reject('Error retrieving webhooks:', getWebhooksResponse);
+      }
+    });
+  }
+  catch(error) {
+    console.log('Error on retrieving webhooks getWebhooksResponse:', error);
+  }
+}
+async function getWebhook(webhookId) {
+  try {
+    return new Promise(async (resolve, reject) => { 
+    const getWebhookResponse = await fetch(`https://api.paychex.com/management/hooks/webhookId`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.paychex.companies.v1+json'
+      },
+    });
+      if(getWebhookResponse) {
+        resolve(getWebhookResponse.json());
+      }
+      else {
+        reject('Error retrieving webhook with webhookId:', getWebhookResponse, webhookId);
+      }
+    });
+  }
+  catch(error) {
+    console.log('Error on retrieving webhook getWebhookResponse:', error);
+  }
+}
+// uri: string, companyId: string, 
+// authentication: 
+// NO_AUTH doesn't have any other fields in authentication object
+// * BASIC_AUTH needs 2 fields: username and password
+// * APIKEY requires the field: apiKey
+// * OAUTH2 requires 5 fields: tokenUrl, clientId, clientSecret, grantType, contentType
+// * OAUTH2_BASIC requires 5 fields: tokenUrl, clientId, clientSecret, grantType, contentType
+// domains: ["WRKR_TAX","CLT_ORG","WRKR_EMPL","CLT_PYRN","WRKR_ASGN","WRKR_DEM","WRKR_CMP","WRKR_ADD","CLT_DEM","PAY_PERIOD"]
+async function addWebhook(uri, companyId, authentication, domains) {
+  try {
+    return new Promise(async (resolve, reject) => { 
+    const getWebhookResponse = await fetch(`https://api.paychex.com/management/hooks/webhookId`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: JSON.stringify([{ 
+          uri: uri,
+          companyId: companyId,
+          authentication: authentication,
+          domains: domains
+        }])
+    });
+      if(getWebhookResponse) {
+        resolve(getWebhookResponse.json());
+      }
+      else {
+        reject('Error retrieving webhook with webhookId:', getWebhookResponse, webhookId);
+      }
+    });
+  }
+  catch(error) {
+    console.log('Error on retrieving webhook getWebhookResponse:', error);
+  }
+}
 async function main() {
   // Read the dd.csv file (naive parsing) and produce one record per line.
   // Expected header row and CSV parsing must be implemented for production use.
@@ -257,10 +448,30 @@ async function main() {
   });
   employees.forEach(employee => {
     if (employee.workerId) {
-      sendDirectDeposit(employee);
+      sendDirectDeposit(employee, token.access_token);
+      sendFederalTax(employee, token.access_token);
+      sendStateTax(employee, token.access_token);
     }
   });
 }
 
 // Execute the main function
 main();
+
+// Export functions for use in webhook.js and other modules
+module.exports = {
+  getAccessToken,
+  getCompanyId,
+  getWorkers,
+  sendCompanyJob,
+  sendWorkerPayRate,
+  sendWorkerDocument,
+  sendDirectDeposit,
+  sendFederalTax,
+  sendStateTax,
+  getWorkerStatus,
+  getManagementDomains,
+  getWebhooks,
+  getWebhook,
+  addWebhook
+};

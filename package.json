@@ -15,7 +15,11 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "webhook": "node webhook.js",
+    "webhook:register": "node webhook.js register",
+    "webhook:list": "node webhook.js list",
+    "webhook:test": "node webhook.js test"
   },
   "dependencies": {
     "dotenv": "^17.4.2"
