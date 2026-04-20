@@ -422,37 +422,9 @@ async function addWebhook(uri, companyId, authentication, domains) {
   }
 }
 async function main() {
-  // Read the dd.csv file (naive parsing) and produce one record per line.
-  // Expected header row and CSV parsing must be implemented for production use.
-  const file = fs.readFileSync(path.join(__dirname, 'dd.csv'), 'utf-8');
-  const employees = file.split('\n').map(name => name.trim()).filter(Boolean);
-  // NOTE: `employees` is currently an array of strings. The original script
-  // assumes structured objects; to use this reliably you should parse CSV into
-  // objects keyed by header names.
-
-  // The following block intended to match workers to employees. In the
-  // original script `workers` is not defined in this scope; before calling
-  // this block the code must call `getAccessToken()` and `getWorkers()` and
-  // parse `employees` into objects. This preserves original behavior but is
-  // not yet fully wired.
   const token = await getAccessToken(apiURL);
   const cid = await getCompanyId(token.access_token);
-  const workerData = await getWorkers(cid, token.access_token);
-  workerData.forEach(worker => {
-    const fullName = `${worker.givenName} ${worker.familyName}`;
-    employees.forEach(employee => {
-      if (fullName === employee.givenName + ' ' + employee.familyName) {
-        employee.workerId = worker.workerId;
-      }
-    });
-  });
-  employees.forEach(employee => {
-    if (employee.workerId) {
-      sendDirectDeposit(employee, token.access_token);
-      sendFederalTax(employee, token.access_token);
-      sendStateTax(employee, token.access_token);
-    }
-  });
+  
 }
 
 // Execute the main function

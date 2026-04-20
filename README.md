@@ -17,6 +17,48 @@ Quick start
 node index.js
 ```
 
+Webhook server
+
+To start the webhook server and receive Paychex events locally:
+
+```bash
+node webhook.js
+```
+
+Endpoints:
+- `POST /webhook` : receives Paychex webhook events.
+- `GET /health` : responds with `{ status: 'healthy' }`.
+- `GET /test` : responds with server status and configured webhook URL.
+
+Local testing
+
+To verify the webhook logic locally without Paychex sending events:
+
+```bash
+node webhook.js test
+```
+
+This starts the server and sends a sample `WRKR_EMPL` payload to the local `/webhook` endpoint.
+
+Webhook registration
+
+Register webhook subscriptions in Paychex for supported worker domains:
+
+```bash
+node webhook.js register
+```
+
+List registered webhooks:
+
+```bash
+node webhook.js list
+```
+
+Configuration
+
+- `WEBHOOK_PORT` : port used by local server (default `3000`).
+- `WEBHOOK_URL` : full callback URL used when registering webhooks.
+
 Expected CSV
 
 The script expects a headered CSV (example):
@@ -45,16 +87,3 @@ Power Automate / OneDrive integration
   contents.
 - Option 2: run this script on a host that polls a OneDrive-synced folder for
   new files (less reliable).
-
-Security & production checklist
-
-- Do not hardcode secrets; use environment variables or a secrets store.
-- Add input validation and a `--dry-run` mode to preview API payloads.
-- Add retries and idempotency checks to prevent duplicate writes.
-- Add logging and error handling; validate HTTP status codes and responses.
-
-If you want, I can refactor the script to:
-- parse CSV robustly,
-- accept credentials via environment variables,
-- add a dry-run mode,
-- provide an Azure Function + Power Automate sample flow.
