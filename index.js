@@ -66,19 +66,20 @@ async function getAccessToken(url) {
     console.log('Error connecting to Paychex API:', error);
   }
 }
-async function getCompanyId(accessToken) {
+async function getCompanies(accessToken) {
+  const legalName = 'Acacia Home Health Services';
   try {
     return new Promise(async (resolve, reject) => {
-      const companyId = await fetch('https://api.paychex.com/companies', {
+      const companies = await fetch('https://api.paychex.com/companies', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Accept': 'application/vnd.paychex.companies.v1+json'
           }
         });
-      const cid = await companyId.json().then(data => data[0].id);
-      if(cid)  {
-        resolve(cid);
+      const companyId = await companies.json().then(data => data.find(company => company.legalName === legalName).id);
+      if(companyId)  {
+        resolve(companyId);
       }
       else {
         reject('Error retrieving company ID', companyId);
@@ -89,29 +90,52 @@ async function getCompanyId(accessToken) {
     console.log('Error retrieving company ID:', error);
   }
 }
-async function getWorkers(cid, accessToken) {
+async function getCompany(companyId, accessToken) {
   try {
-    return new Promise(async (resolve, reject) => { 
-      const workers = await fetch(`https://api.paychex.com/companies/${cid}/workers`, {
+    return new Promise(async (resolve, reject) => {
+      const company = await fetch(`https://api.paychex.com/companies/${companyId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json'     
+          'Accept': 'application/vnd.paychex.companies.v1+json'
+          }
+      });
+      const c = await company.json();
+      if(c)  {
+        resolve(c);
+      }
+      else {
+        reject('Error retrieving company data', c);
+      }
+    });   
+  }
+  catch(error) {
+    console.log('Error retrieving company data:', error);
+  }
+}
+async function getWorker(cid, workerId, accessToken) {
+  try {
+    return new Promise(async (resolve, reject) => { 
+      const worker = await fetch(`https://api.paychex.com/companies/${cid}/workers/${workerId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/vnd.paychex.companies.v1+json'
         }
       });
       // `workers` is the fetch Response object. The original script resolves
       // with the response; callers must call .json() on it. Consider returning
       // the parsed JSON directly to simplify callers.
-      if(workers) {
-        resolve(workers.json());
+      if(worker) {
+        resolve(worker.json());
       }
       else {
-        reject('Error retrieving workers', workers);
+        reject('Error retrieving worker', worker);
       }
     });
   }
   catch(error) {
-    console.log('Error retrieving workers:', error);
+    console.log('Error retrieving worker:', error);
   }
 }
 async function sendCompanyJob(employee) {
@@ -199,6 +223,29 @@ async function sendWorkerDocument(employee, accessToken, file) {
     console.log('Error sending worker document', e);
   }
 }
+async function getWorkerDocuments(employee, accessToken) {
+  try {
+    return new Promise(async (resolve, reject) => {
+      const workerDocumentsResponse = await fetch(`https://api.paychex.com/workers/${employee.workerId}/workerdocuments`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/vnd.paychex.companies.v1+json'
+        }
+      });
+      if(workerDocumentsResponse) {
+        resolve(workerDocumentsResponse.json());
+      }
+      else {
+        reject('Error retrieving worker documents', workerDocumentsResponse);
+      }
+    });
+  }
+  catch(e) {
+    console.log('Error retrieving worker documents', e);
+  }
+}
+
 async function sendDirectDeposit(employee, accessToken) {
   try {
     return new Promise(async (resolve, reject) => { 
@@ -432,8 +479,9 @@ main();
 // Export functions for use in webhook.js and other modules
 module.exports = {
   getAccessToken,
-  getCompanyId,
-  getWorkers,
+  getCompanies,
+  getCompany,
+  getWorker,
   sendCompanyJob,
   sendWorkerPayRate,
   sendWorkerDocument,
