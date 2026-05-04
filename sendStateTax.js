@@ -479,8 +479,9 @@ main();
 // Export functions for use in webhook.js and other modules
 module.exports = {
   getAccessToken,
-  getCompanyId,
-  getWorkers,
+  getCompanies,
+  getCompany,
+  getWorker,
   sendCompanyJob,
   sendWorkerPayRate,
   sendWorkerDocument,

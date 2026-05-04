@@ -2,6 +2,8 @@ const http = require('http');
 const url = require('url');
 const path = require('path');
 const fs = require('fs');
+const csv = require('fast-csv');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 /*
   Paychex automation script
@@ -67,7 +69,7 @@ async function getAccessToken(url) {
   }
 }
 async function getCompanies(accessToken) {
-  const legalName = 'Acacia Home Health Services';
+  const legalName = 'Acacia Health';
   try {
     return new Promise(async (resolve, reject) => {
       const companies = await fetch('https://api.paychex.com/companies', {
@@ -111,6 +113,62 @@ async function getCompany(companyId, accessToken) {
   }
   catch(error) {
     console.log('Error retrieving company data:', error);
+  }
+}
+async function getCompanyWorkers(companyId, accessToken) {
+  try {
+    return new Promise(async(resolve, reject) => {
+      const workers = await fetch(`https://api.paychex.com/companies/${companyId}/workers`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/vnd.paychex.companies.v1+json'
+        }
+      });
+      const workerData = await workers.json();
+      // returns {metadata:{}}, content: [{worker1}, {worker2}, ...]}
+      if(workerData) {
+        resolve(workerData);
+      }
+      else {
+        reject('Error retrieving company workers', workerData);
+      }
+    });
+  }
+  catch(error) {
+    console.log('Error retrieving company workers:', error);
+  }
+}
+async function getCurrentStatuses(companyId, accessToken) {
+  try {
+    return new Promise(async(resolve, reject) => {
+      const workers = await getCompanyWorkers(companyId, accessToken);
+      const workerStatuses = workers.content.map(worker => {
+        return {
+          workerId: worker.id,
+          employeeId: worker.employeeId,
+          employeeName: `${worker.name.givenName} ${worker.name.familyName}`,
+          jobTitle: worker.job.jobTitle,
+          status: worker.currentStatus.statusType,
+          statusDetail: worker.currentStatus.statusReason,
+          statusEffectiveDate: worker.currentStatus.effectiveDate
+        };
+      });
+      resolve(workerStatuses);
+    });
+  }
+  catch(error){
+    console.log('Error retrieving current worker statuses:', error);
+  }
+}
+async function getWorkerByName(companyId, firstName, lastName, accessToken) {
+  try {
+    const workers = await getCompanyWorkers(companyId, accessToken);
+    const worker = workers.content.find(worker => worker.givenName === firstName && worker.familyName === lastName);
+    return worker;
+  }
+  catch(error) {
+    console.log('Error retrieving worker ID by name:', firstName, lastName, error);
   }
 }
 async function getWorker(cid, workerId, accessToken) {
@@ -468,9 +526,44 @@ async function addWebhook(uri, companyId, authentication, domains, accessToken) 
     console.log('Error on retrieving webhook getWebhookResponse:', error);
   }
 }
+const transporter = nodemailer.createTransport({
+  host: "smtp-mail.outlook.com", // hostname
+  secureConnection: false, // TLS requires secureConnection to be false
+  port: 587, // port for secure SMTP
+  tls: {
+    ciphers: 'SSLv3'
+  },
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+const mailOptionsInactive = {
+  from: process.env.EMAIL_USER,
+  to: 'hr@acaciahealth.net',
+  subject: 'Employee Status Update',
+  text: 'The current employee statuses have been updated to INACTIVE. Please find the attached CSV file for details.',
+  attachments: [
+    {
+      filename: 'current_statuses.csv',
+    }]
+};
 async function main() {
+  // get the access token to authenticate API calls, the url is 'https://api.paychex.com/auth/oauth/v2/token'
   const token = await getAccessToken(apiURL);
-  const cid = await getCompanyId(token.access_token);
+  // get our Company from Companies endpoint 
+  const cid = await getCompanies(token.access_token);
+  const companyData = await getCompany(cid, token.access_token);
+  const currentStatuses = await getCurrentStatuses(cid, token.access_token);
+  // write to csv file the following headers: workerId, employeeId, employeeName, jobTitle, status, statusDetail, statusEffectiveDate
+  const ws = fs.createWriteStream('current_statuses.csv');
+  csv.write(currentStatuses, { headers: true }).pipe(ws);
+  transporter.sendMail(mailOptionsInactive, function(error, info){
+    if (error) {
+      console.log('Error sending email:', error);
+    } else {
+      console.log('Email sent: ' + info.response);
+    }});
 }
 
 // Execute the main function
